@@ -1,0 +1,389 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Chat</title>
+    
+    <style>
+    * {
+        box-sizing: border-box;
+    }
+    
+    body {
+        margin: 0;
+        min-height: 100vh;
+        padding: 16px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #efeee4;
+        color: #17252f;
+        font-family: "Segoe UI", Arial, sans-serif;
+    }
+    
+    .chat {
+        width: 100%;
+        max-width: 560px;
+        height: min(720px, calc(100vh - 32px));
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: #fff;
+        border: 1px solid #d3dce3;
+        border-radius: 16px;
+        box-shadow: 0 10px 35px #17252f20;
+    }
+    
+    .chat-header {
+        padding: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        background: #0f5c63;
+        color: white;
+    }
+    
+    .chat-header h1 {
+        margin: 0;
+        font-size: 24px;
+    }
+    
+    .subtitle {
+        margin: 5px 0 0;
+        font-size: 13px;
+        color: #e1f0ef;
+    }
+    
+    .controls {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 12px;
+    }
+    
+    .controls select {
+        padding: 8px;
+        border: none;
+        border-radius: 7px;
+    }
+    
+    .messages {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        list-style: none;
+        margin: 0;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .empty {
+        margin: auto;
+        color: #5d6f7c;
+        text-align: center;
+    }
+    
+    .message {
+        max-width: 82%;
+        padding: 10px 13px;
+        border-radius: 14px;
+        background: #eef2f5;
+        align-self: flex-start;
+        overflow-wrap: anywhere;
+    }
+    
+    .message.mine {
+        align-self: flex-end;
+        background: #0f5c63;
+        color: white;
+    }
+    
+    .author {
+        display: block;
+        font-size: 12px;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    
+    .message p {
+        margin: 0 0 5px;
+        white-space: pre-wrap;
+    }
+    
+    .message time {
+        display: block;
+        text-align: right;
+        font-size: 10px;
+        opacity: 0.75;
+    }
+    
+    #message-form {
+        display: flex;
+        gap: 8px;
+        padding: 14px;
+        border-top: 1px solid #d3dce3;
+    }
+    
+    #message-input {
+        flex: 1;
+        min-width: 0;
+        padding: 12px 14px;
+        border: 1px solid #d3dce3;
+        border-radius: 24px;
+        font-size: 14px;
+        outline-color: #0f5c63;
+    }
+    
+    button {
+        cursor: pointer;
+        font: inherit;
+    }
+    
+    #send-btn {
+        padding: 10px 16px;
+        border: none;
+        border-radius: 24px;
+        background: #0f5c63;
+        color: white;
+        font-weight: bold;
+    }
+    
+    .chat-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 14px;
+        border-top: 1px solid #d3dce3;
+        background: #f7f9fa;
+        color: #5d6f7c;
+        font-size: 12px;
+    }
+    
+    #clear-btn {
+        padding: 7px 10px;
+        border: 1px solid #d3dce3;
+        border-radius: 7px;
+        background: white;
+    }
+    
+    @media (max-width: 480px) {
+        body {
+            padding: 0;
+        }
+    
+        .chat {
+            height: 100vh;
+            border: none;
+            border-radius: 0;
+        }
+    
+        .chat-header {
+            padding: 14px;
+        }
+    
+        .messages {
+            padding: 12px;
+        }
+    }
+    </style>
+    </head>
+    
+    <body>
+    
+    <main class="chat">
+    
+        <header class="chat-header">
+            <div>
+                <h1>Gunio, John David</h1>
+                <p class="subtitle">Your classroom, connected.</p>
+            </div>
+    
+            <div class="controls">
+                <label for="user-select">Chat as:</label>
+                <select id="user-select">
+                    <option>Ana</option>
+                </select>
+            </div>
+        </header>
+    
+        <ul id="messages" class="messages" aria-live="polite"></ul>
+    
+        <form id="message-form">
+            <input
+                type="text"
+                id="message-input"
+                placeholder="Type your message..."
+                maxlength="1000"
+                autocomplete="off"
+                required
+            >
+            <button type="submit" id="send-btn">Send ➤</button>
+        </form>
+    
+        <footer class="chat-footer">
+            <span>💚 Class Chat</span>
+            <button type="button" id="clear-btn">Clear messages</button>
+        </footer>
+    
+    </main>
+    
+    <script>
+    "use strict";
+    
+    const messageList = document.getElementById("messages");
+    const form = document.getElementById("message-form");
+    const input = document.getElementById("message-input");
+    const userSelect = document.getElementById("user-select");
+    const clearBtn = document.getElementById("clear-btn");
+    
+    const STORAGE_KEY = "class-chat-fixed-v1";
+    let messages = [];
+    let replyTimer = null;
+    
+    try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        messages = Array.isArray(saved) ? saved : [];
+    } catch (error) {
+        messages = [];
+    }
+    
+    function saveMessages() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    }
+    
+    function renderMessages() {
+        messageList.replaceChildren();
+    
+        if (messages.length === 0) {
+            const empty = document.createElement("Hi");
+            empty.className = "empty";
+            empty.textContent = "No messages yet. Say hello to start!";
+            messageList.appendChild(empty);
+            return;
+        }
+    
+        messages.forEach(function(msg) {
+            const item = document.createElement("Hi");
+            item.className =
+                msg.sender === userSelect.value ? "message mine" : "message";
+    
+            const author = document.createElement("span");
+            author.className = "author";
+            author.textContent = msg.sender;
+    
+            const text = document.createElement("p");
+            text.textContent = msg.text;
+    
+            const time = document.createElement("time");
+            time.textContent = new Date(msg.time).toLocaleTimeString([], {
+                hour: "numeric",
+                minute: "2-digit"
+            });
+    
+            item.append(author, text, time);
+            messageList.appendChild(item);
+        });
+    
+        messageList.scrollTop = messageList.scrollHeight;
+    }
+    
+    function getAutoReply(text) {
+        const msg = text.toLowerCase();
+    
+        if (/\b(hi|hello|hey|kamusta)\b/.test(msg)) {
+            return "Hello, Ana! Welcome to our Class Chat! 😊";
+        }
+    
+        if (msg.includes("homework")) {
+            return "Reminder lang, Ana! Check your homework instructions. 📚";
+        }
+    
+        if (msg.includes("assignment")) {
+            return "Don't forget to check your assignment deadline, Ben! ✏️";
+        }
+    
+        if (msg.includes("gagi nahihirapan ako sa exam") || msg.includes("quiz")) {
+            return "Good luck baby, iloveyou! Remember to review my future engineer. 💪";
+        }
+    
+        if (msg.includes("thank")) {
+            return "You're welcome! Happy to help! 😊";
+        }
+    
+        if (msg.includes("hirap po")) {
+            return "kaya mo yan believe me sayo.";
+        }
+    
+        return "Thanks for sharing, class! 😊 Keep the conversation going.";
+    }
+    
+    function addMessage(sender, text) {
+        messages.push({
+            sender: sender,
+            text: text,
+            time: Date.now()
+        });
+    
+        try {
+            saveMessages();
+        } catch (error) {
+            messages.pop();
+            alert("Hindi ma-save ang message. Check your browser storage.");
+            return false;
+        }
+    
+        renderMessages();
+        return true;
+    }
+    
+    form.addEventListener("submit", function(event) {
+        event.preventDefault();
+    
+        const text = input.value.trim();
+        if (!text) return;
+    
+        if (!addMessage(userSelect.value, text)) return;
+    
+        input.value = "";
+        input.focus();
+    
+        if (replyTimer !== null) {
+            clearTimeout(replyTimer);
+        }
+    
+        replyTimer = setTimeout(function() {
+            addMessage("Ben", getAutoReply(text));
+            replyTimer = null;
+        }, 700);
+    });
+    
+    userSelect.addEventListener("change", renderMessages);
+    
+    clearBtn.addEventListener("click", function() {
+        if (!confirm("Delete all messages?")) return;
+    
+        if (replyTimer !== null) {
+            clearTimeout(replyTimer);
+            replyTimer = null;
+        }
+    
+        const oldMessages = messages;
+        messages = [];
+    
+        try {
+            saveMessages();
+            renderMessages();
+        } catch (error) {
+            messages = oldMessages;
+            alert("Unable to clear messages.");
+        }
+    });
+    
+    renderMessages();
+    </script>
+    
+    </body>
+    </html>
